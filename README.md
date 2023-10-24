@@ -2,8 +2,12 @@
 Qwen-VL-AutoCaptions is based on Qwen-VL ability to caption images and classification image into different category.
 </p>
 <br><br>
-<p>The preset category is the following:</p>
+<p>
+  The preset category is the following:
+</p>
+
 ---
+
 - "religion",
 - "animal",
 - "people",
@@ -13,16 +17,19 @@ Qwen-VL-AutoCaptions is based on Qwen-VL ability to caption images and classific
 - "digital_illustration",
 - "food",
 - "unrecognized"
----
 <br><br>
 This category could be modified but you should aware the result need to be reviewed.
 <br>
 Before using the autoCatpions.py
 change the input_directory and output_directory in autoCatpions.py first.
 <br>
+<p>
+
 ```python
 python autoCaptions.py
 ```
+
+</p>
 <p align="left">
         <a href="README_CN.md">中文</a>&nbsp ｜ &nbspEnglish&nbsp&nbsp ｜ &nbsp<a href="README_JA.md">日本語</a>&nbsp
 </p>
