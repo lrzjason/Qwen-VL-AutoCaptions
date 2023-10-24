@@ -4,6 +4,7 @@ import torch
 import json
 import os
 import shutil
+import re
 
 torch.manual_seed(1234)
 
@@ -46,6 +47,8 @@ categories = [
   "unrecognized"
 ]
 
+MAX_CLASSIFICATION_LOOP = 1
+
 # create categories in output directory if not exists
 for category in categories:
   category_directory = os.path.join(output_directory, category)
@@ -63,62 +66,57 @@ classification_hint = f'Please classify the image in different categories result
 def get_scores(response):
   # find 'Reason:' index in response, get 0 to index string
   reason_index = response.find('Reason:')
-  scores_string = response[0:reason_index].lower()
+  scores_string = response[0:reason_index].lower().replace('_',' ')
+  reason_string = response[reason_index:]
   print('response: ', response)
   print('scores_string: ', scores_string)
-
-  split_char = ','
-  if scores_string.find(',') != -1:
-    # split string by ','
-    scores = scores_string.split(',')
-  else:
-    first_category_index = scores_string.find(f'{categories[0]}:')
-    second_category_index = scores_string.find(f'{categories[1]}:')
-    score_part = scores_string[first_category_index:second_category_index]
-    # remove empty space
-    score_part = score_part.replace(' ','')
-    # remain part should like: '10|' 
-    # get the last part to find the split char
-    split_char = score_part[-1]
-    scores = scores_string.split(split_char)
 
   # define max_scores for looping to get max score
   max_scores = 0
   result = {}
-  for category in categories:
+  max_category = ''
+  sum_scores = 0
+  for index, category in enumerate(categories):
     result[category] = 0
-  print('result init:', result)
-  # loop through scores, get score and category
-  for score in scores:
-    # split score by ':'
-    score_split = score.strip().split(':')
-    # get category
-    category = score_split[0].replace(' ','_')
-    # try to parse score to int
-    try:
-      # get score
-      value = score_split[1]
-      value = int(value)
-    except:
-      print('category error: ', category)
-      value = 0
-    result[category] = value
-    print('category: ', category, ' score: ', value)
+    first_index = scores_string.index(category.replace('_', ' '))+len(category)
+    if index != len(categories) - 1:
+      second_index = scores_string.index(categories[index+1].replace('_', ' '))
+    else:
+      second_index = len(scores_string)
+    s = scores_string[first_index:second_index]
+    pattern = r'\d+' # a regular expression that matches one or more digits
+    match = re.search(pattern, s) # search for the pattern in the string
+    category_value = 0
+    if match: # if a match is found
+        category_value = int(match.group()) # convert the matched substring to an integer
+        # print(category_value) # print the number
+    else: # if no match is found
+        print(category, ' category_value not found') # print a message
+    
+    result[category] = category_value
+    sum_scores += category_value
+    print('category: ', category, ' score: ', category_value)
     # get max score
-    if int(value) > max_scores:
-      max_scores = int(value)
+    if int(category_value) > max_scores:
+      max_scores = int(category_value)
       max_category = category
-
   # extra bias of image classification
   # if scores of food is greater than 50, set max_category to food
-  if result['food'] >= 50:
-    max_category = 'food'
-    max_scores = result['food']
 
+  average_scores = sum_scores / len(categories)
+  print('average_scores: ', average_scores)
   # if max category is landscape_only and people is greater than 50, set max_category to people
-  if max_category == 'landscape_only' and result['people'] > 50:
-    max_category = 'people'
-    max_scores = result['people']
+  if max_category == 'landscape_only':
+    if reason_string.find('landscape') == -1:
+      if result['people'] > average_scores:
+        max_category = 'people'
+        max_scores = result['people']
+      elif result['animal'] > average_scores:
+        max_category = 'animal'
+        max_scores = result['animal']
+  if result['food'] == max_scores:
+      max_category = 'food'
+      max_scores = result['food']
   print('result',result)
   print('max_category: ', max_category, ' max_scores: ', max_scores)  
   return max_category, max_scores
@@ -174,7 +172,31 @@ for filename in os.listdir(input_directory):
   print('classification: ', response)
   classification = response
   
-  max_category, max_scores = get_scores(response)
+  classify_wrong = False
+  # try 5 times to classify image
+  classification_count = 0
+  # if get response is error, the response might be using unknown format
+  while not classify_wrong and classification_count < MAX_CLASSIFICATION_LOOP:
+    try:
+      query = tokenizer.from_list_format([
+          {'image': image_path}, # Either a local path or an url
+          {'text': classification_hint},
+      ])
+      response, history = model.chat(tokenizer, query=query, history=history)
+      print('classification: ', response)
+      classification = response
+      max_category, max_scores = get_scores(response)
+      classify_wrong = True
+    except Exception as e:
+      # Print the exception message
+      print(f"An exception occurred: {str(e)}")
+      classification_count+=1
+      print('Classify Wrong. Re run classification.')
+  
+  if classify_wrong and classification_count >= 5:
+    print('Unable to classify image. Skip this image.')
+    continue
+
   category_dir = os.path.join(output_directory, max_category)
 
   suffix = ''
