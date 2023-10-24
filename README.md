@@ -8,15 +8,15 @@ Qwen-VL-AutoCaptions is based on Qwen-VL ability to caption images and classific
 
 ---
 
-- "religion",
-- "animal",
-- "people",
-- "landscape_only",
-- "artwork",
-- "2d_pixel_image",
-- "digital_illustration",
-- "food",
-- "unrecognized"
+- religion
+- animal
+- people
+- landscape_only
+- artwork
+- 2d_pixel_image
+- digital_illustration
+- food
+- unrecognized
 <br><br>
 This category could be modified but you should aware the result need to be reviewed.
 <br>
